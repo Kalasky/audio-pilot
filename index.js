@@ -2,7 +2,20 @@ require('dotenv').config()
 const fs = require('node:fs')
 const path = require('node:path')
 const deployCommands = require('./deploy-commands')
-const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js')
+const { Client, Collection, Events, GatewayIntentBits } = require('discord.js')
+
+// database imports
+const mongoose = require('mongoose')
+
+// express imports
+const express = require('express')
+const PORT = process.env.PORT || 7777
+const app = express()
+
+// middleware
+app.use(express.json()) // for parsing application/json
+app.use(express.urlencoded({ extended: true })) // for parsing application/x-www-form-urlencoded
+app.use(express.raw({ type: 'application/json' }))
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 
@@ -18,9 +31,7 @@ for (const file of commandFiles) {
   if ('data' in command && 'execute' in command) {
     client.commands.set(command.data.name, command)
   } else {
-    console.log(
-      `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-    )
+    console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`)
   }
 }
 
@@ -45,6 +56,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
     })
   }
 })
+
+// routes
+const spotifyRoutes = require('./routes/spotifyRoutes.js')
+
+app.use('/api', spotifyRoutes)
+app.get('/', (req, res) => {
+  res.send('Access token and refresh token successfully refreshed! You can close this window now.')
+})
+
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`)
+})
+
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log('DATABASE CONNECTED'))
+  .catch((e) => console.log('DB CONNECTION ERROR: ', e))
 
 // deploy global commands when bot joins a new guild
 client.on(Events.GuildCreate, () => {
